@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hypnotic Video Overlay</title>
+    <style>
+        :root {
+            --accent-color: #00ffd5;
+            --transition-speed: 2s;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: #050505;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* 9:16 Mobile Container constraint for desktop viewing */
+        #app-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 56.25vh; /* forces 9:16 aspect ratio roughly on landscape */
+            background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            transition: background var(--transition-speed) ease;
+        }
+
+        /* Tap to start screen (handles audio autoplay restrictions) */
+        #start-screen {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.9);
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+        }
+
+        .pulse-text {
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            animation: pulse-op 1.5s infinite alternate;
+            color: var(--accent-color);
+            transition: color var(--transition-speed);
+        }
+
+        /* Background Particles Layer */
+        #particles {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .particle {
+            position: absolute;
+            bottom: -10%;
+            background: var(--accent-color);
+            border-radius: 50%;
+            opacity: 0.5;
+            filter: blur(2px);
+            animation: rise linear infinite;
+            transition: background var(--transition-speed);
+        }
+
+        /* Central Square Area */
+        .center-wrapper {
+            position: relative;
+            width: 80%;
+            aspect-ratio: 1 / 1;
+            z-index: 10;
+            animation: float 6s ease-in-out infinite;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* RGB Glowing Border */
+        .center-wrapper::before {
+            content: "";
+            position: absolute;
+            inset: -4px;
+            background: linear-gradient(45deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000);
+            background-size: 400%;
+            border-radius: 12px;
+            z-index: -1;
+            filter: blur(8px);
+            animation: rgb-glow 10s linear infinite;
+            opacity: 0.85;
+        }
+
+        .image-container {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        #main-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: opacity 0.5s ease;
+        }
+
+        /* Timer Overlay */
+        .timer-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: rgba(255,255,255,0.2);
+        }
+
+        #progress-bar {
+            height: 100%;
+            width: 100%;
+            background: var(--accent-color);
+            box-shadow: 0 0 10px var(--accent-color);
+            transition: background var(--transition-speed);
+            transform-origin: left;
+        }
+
+        #timer-text {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 5px #000, 0 0 10px var(--accent-color);
+            z-index: 12;
+        }
+
+        /* Social Buttons */
+        .social-actions {
+            position: relative;
+            z-index: 10;
+            width: 80%;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin-top: 40px;
+        }
+
+        .btn {
+            background: rgba(0,0,0,0.6);
+            border: 1px solid var(--accent-color);
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 30px;
+            font-size: 1rem;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease, border-color var(--transition-speed), box-shadow var(--transition-speed);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover, .btn:active {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px var(--accent-color);
+            background: rgba(255,255,255,0.1);
+        }
+
+        .btn.sub {
+            background: var(--accent-color);
+            color: #000;
+            font-weight: bold;
+            border: none;
+            box-shadow: 0 0 20px var(--accent-color);
+        }
+
+        /* Keyframe Animations */
+        @keyframes float {
+            0% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-15px) rotate(1deg); }
+            100% { transform: translateY(0px) rotate(0deg); }
+        }
+
+        @keyframes rgb-glow {
+            0% { background-position: 0 0; }
+            50% { background-position: 400% 0; }
+            100% { background-position: 0 0; }
+        }
+
+        @keyframes rise {
+            0% { transform: translateY(0) scale(1); opacity: 0; }
+            10% { opacity: 0.6; }
+            90% { opacity: 0.6; }
+            100% { transform: translateY(-120vh) scale(1.5); opacity: 0; }
+        }
+
+        @keyframes pulse-op {
+            from { opacity: 0.4; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        
+        <div id="start-screen" onclick="startExperience()">
+            <div class="pulse-text">Tap to Enter</div>
+        </div>
+
+        <div id="particles"></div>
+
+        <div class="center-wrapper">
+            <div id="timer-text">30</div>
+            <div class="image-container">
+                <img id="main-image" src="" alt="Hypnotic Visual">
+                <div class="timer-container">
+                    <div id="progress-bar"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="social-actions">
+            <button class="btn">❤️</button>
+            <button class="btn">💬</button>
+            <button class="btn sub">Subscribe</button>
+        </div>
+
+        <audio id="bg-music" loop>
+            <source src="riddle.mp3" type="audio/mpeg">
+        </audio>
+
+    </div>
+
+    <script>
+        // Array of images provided
+        const images = [
+            "https://i.postimg.cc/hPqr2Ncd/0bf6331d040e4cd3bce2a0d6c98c42b9.gif",
+            "https://i.postimg.cc/BQcCkNnD/1eb92edc14b34686ae21e0e8af62f036.gif",
+            "https://i.postimg.cc/c4Mc2TLD/5d99611542654698bb321e964af0ef76.gif",
+            "https://i.postimg.cc/vZYvs94j/9a89bb76756f4037b7fc0de10573d18b.gif",
+            "https://i.postimg.cc/wjwQTvJR/9f405177454e4b3d876f3eb05294a96b.gif",
+            "https://i.postimg.cc/rwfNFmWZ/20251222-070024.gif",
+            "https://i.postimg.cc/3wGmVyzP/20251222-070039.gif",
+            "https://i.postimg.cc/jqcNpY3F/20251222-070117.gif",
+            "https://i.postimg.cc/4N3tZ2rh/20251222-070341.gif",
+            "https://i.postimg.cc/jdkfjQb3/20251222-070441.gif",
+            "https://i.postimg.cc/503YW8gq/20251222-070457.gif",
+            "https://i.postimg.cc/ydBgGLmg/20251222-070519.gif",
+            "https://i.postimg.cc/cHmgGfh9/20251222-070539.gif",
+            "https://i.postimg.cc/vT24cMpB/20251222-070617.gif",
+            "https://i.postimg.cc/TYSyxdVJ/20251222-071550.gif",
+            "https://i.postimg.cc/sD8BzjYt/20251222-071703.gif",
+            "https://i.postimg.cc/XYCr7Rx6/20251222-071726.gif",
+            "https://i.postimg.cc/Xv6pZsDp/20251222-072004.gif",
+            "https://i.postimg.cc/HxpnzVmQ/20251222-072049.gif",
+            "https://i.postimg.cc/HxBxhdsD/20251222-072124.gif",
+            "https://i.postimg.cc/gJNJTmc7/20251222-072149.gif",
+            "https://i.postimg.cc/rsHpqjrS/20251222-072218.gif",
+            "https://i.postimg.cc/9QZfjGFD/20251222-072238.gif",
+            "https://i.postimg.cc/wjLBdhTN/20251222-072306.gif",
+            "https://i.postimg.cc/bwkvjQNQ/20251222-072327.gif",
+            "https://i.postimg.cc/DwLzKqyL/20251222-072355.gif",
+            "https://i.postimg.cc/LsS84nng/20251222-072433.gif",
+            "https://i.postimg.cc/PqH5fPP7/20251222-072456.gif",
+            "https://i.postimg.cc/rpTwyKK7/20251222-072525.gif",
+            "https://i.postimg.cc/43Gx4mmF/20251222-072555.gif",
+            "https://i.postimg.cc/KYb8cRRH/20251222-072621.gif",
+            "https://i.postimg.cc/k5yX2qbp/20251222-072643.gif",
+            "https://i.postimg.cc/FKxsYNLn/20251222-072706.gif",
+            "https://i.postimg.cc/MGYKnqQC/20251222-072728.gif",
+            "https://i.postimg.cc/25x81rWp/20251222-072756.gif",
+            "https://i.postimg.cc/YSxqvMFp/20251222-072815.gif",
+            "https://i.postimg.cc/fbvTVDdL/20251222-072835.gif",
+            "https://i.postimg.cc/V6LsMp9Y/20251222-072858.gif",
+            "https://i.postimg.cc/V6LsMp9f/20251222-072922.gif",
+            "https://i.postimg.cc/RFVCfy1C/20251222-073011.gif",
+            "https://i.postimg.cc/ZRKY32P0/20251222-073039.gif",
+            "https://i.postimg.cc/V6LsMp94/20251222-073108.gif",
+            "https://i.postimg.cc/HxZYtz30/20251222-073133.gif",
+            "https://i.postimg.cc/tTSqzkDt/20251222-073203.gif",
+            "https://i.postimg.cc/nzRF12TG/20251222-073228.gif",
+            "https://i.postimg.cc/d1Hs96nn/20251222-073248.gif",
+            "https://i.postimg.cc/7h5xtzQd/20251222-073314.gif",
+            "https://i.postimg.cc/RhWMptDr/20251222-073341.gif",
+            "https://i.postimg.cc/T1KRNbHB/20251222-073413.gif",
+            "https://i.postimg.cc/sxMVHWNR/20251222-073432.gif",
+            "https://i.postimg.cc/L5JHQPbY/20251222-234434.gif",
+            "https://i.postimg.cc/kG2nYSpK/20251222-234528.gif",
+            "https://i.postimg.cc/j2Ds3fFy/20251222-234605.gif",
+            "https://i.postimg.cc/4yjXD3D8/20251222-234654.gif",
+            "https://i.postimg.cc/QxW8pp7g/20251222-235736.gif",
+            "https://i.postimg.cc/kXtJxxSF/20251222-235810.gif",
+            "https://i.postimg.cc/QxW8pp7J/20251222-235839.gif",
+            "https://i.postimg.cc/DybvqqG6/20251223-003603.gif",
+            "https://i.postimg.cc/pXnWDD8N/20251223-003639.gif",
+            "https://i.postimg.cc/y84VnkXN/20251223-003657.gif",
+            "https://i.postimg.cc/mgfbVtNP/20251223-003721.gif",
+            "https://i.postimg.cc/y8m7Gsv8/20251223-003749.gif",
+            "https://i.postimg.cc/YC6tPMb1/20251223-003815.gif",
+            "https://i.postimg.cc/6q4XfX8v/20251223-004245.gif",
+            "https://i.postimg.cc/BZRL9ZcC/20251223-004321.gif",
+            "https://i.postimg.cc/L4JYbgfN/20251223-004400.gif",
+            "https://i.postimg.cc/c1Pgy1Mw/20251223-024930.gif",
+            "https://i.postimg.cc/y62g46Xp/20251223-025216.gif",
+            "https://i.postimg.cc/7Zk5hBRC/20251223-025244.gif",
+            "https://i.postimg.cc/SxhnRZPY/20251223-025304.gif",
+            "https://i.postimg.cc/4xgYy807/20251223-025319.gif",
+            "https://i.postimg.cc/4xgYy805/20251223-025335.gif",
+            "https://i.postimg.cc/Hk9VywDW/20251223-025350.gif",
+            "https://i.postimg.cc/sg4vhYdj/20251223-025405.gif",
+            "https://i.postimg.cc/Ls4hBJ2m/20251223-025423.gif",
+            "https://i.postimg.cc/pV5rZbbQ/20251223-025439.gif",
+            "https://i.postimg.cc/RCJhR55y/20251223-025457.gif",
+            "https://i.postimg.cc/qMfRDb4G/20251223-025522.gif",
+            "https://i.postimg.cc/PfvJ4ssc/20251223-025546.gif",
+            "https://i.postimg.cc/fT4Lq2MT/20251223-025604.gif",
+            "https://i.postimg.cc/CLjK3GKd/20251223-025618.gif",
+            "https://i.postimg.cc/NjB0BKyn/20251223-025631.gif",
+            "https://i.postimg.cc/8zNCN7F0/20251223-025654.gif",
+            "https://i.postimg.cc/Bnpn6JHq/20251223-025725.gif",
+            "https://i.postimg.cc/R00VJ2LM/20251223-025740.gif",
+            "https://i.postimg.cc/mrr21KyM/20251223-025758.gif",
+            "https://i.postimg.cc/q77M6Wxy/20251223-025825.gif",
+            "https://i.postimg.cc/2558Lg7w/20251223-025853.gif",
+            "https://i.postimg.cc/VNHsq4KR/20251223-025921.gif",
+            "https://i.postimg.cc/7LQP3XB8/20251223-025943.gif",
+            "https://i.postimg.cc/hG34LMCR/20251223-030002.gif",
+            "https://i.postimg.cc/NM9spTVq/20251223-030024.gif",
+            "https://i.postimg.cc/9MRmJTSH/20251223-030046.gif",
+            "https://i.postimg.cc/JnDrPJgn/20251223-030111.gif",
+            "https://i.postimg.cc/G2WcNtwp/20251223-030134.gif",
+            "https://i.postimg.cc/nzyH5rbs/20251223-030149.gif",
+            "https://i.postimg.cc/02d8W9t7/aa38ae0bc5364cae919851b516e86702.gif",
+            "https://i.postimg.cc/28FzcCHw/e146551ea80542a39b1094fe0373e82c.gif",
+            "https://i.postimg.cc/c4Ms9dDD/fe6320b78c524701a5a472d1162a025e.gif",
+            "https://i.postimg.cc/PfVbLkbv/km-20251215-1-480p-15f-20251215-070347.gif"
+        ];
+
+        let timeRemaining = 30;
+        let isRunning = false;
+        
+        const imgElement = document.getElementById('main-image');
+        const progressElement = document.getElementById('progress-bar');
+        const timerText = document.getElementById('timer-text');
+        const audio = document.getElementById('bg-music');
+        const startScreen = document.getElementById('start-screen');
+        const particleContainer = document.getElementById('particles');
+
+        function startExperience() {
+            if (isRunning) return;
+            startScreen.style.display = 'none';
+            audio.play().catch(e => console.log("Audio play prevented by browser"));
+            isRunning = true;
+            
+            setRandomImageAndColor();
+            
+            // Start main loop
+            setInterval(updateTimer, 1000);
+            
+            // Start particles
+            setInterval(createParticle, 400);
+        }
+
+        function setRandomImageAndColor() {
+            // Pick random image
+            const randomImg = images[Math.floor(Math.random() * images.length)];
+            imgElement.style.opacity = 0;
+            
+            setTimeout(() => {
+                imgElement.src = randomImg;
+                imgElement.style.opacity = 1;
+            }, 500); // smooth fade
+
+            // Generate Random Neon HSL Color
+            const randomHue = Math.floor(Math.random() * 360);
+            const randomColor = `hsl(${randomHue}, 100%, 50%)`;
+            document.documentElement.style.setProperty('--accent-color', randomColor);
+        }
+
+        function updateTimer() {
+            timeRemaining--;
+            
+            // Update Text
+            timerText.innerText = timeRemaining;
+
+            // Update Progress Bar
+            const percentage = (timeRemaining / 30) * 100;
+            progressElement.style.transform = `scaleX(${percentage / 100})`;
+
+            if (timeRemaining <= 0) {
+                timeRemaining = 30;
+                setRandomImageAndColor();
+            }
+        }
+
+        function createParticle() {
+            const particle = document.createElement('div');
+            particle.classList.add('particle');
+            
+            // Randomize size, position, and speed
+            const size = Math.random() * 8 + 2; 
+            particle.style.width = `${size}px`;
+            particle.style.height = `${size}px`;
+            particle.style.left = `${Math.random() * 100}%`;
+            particle.style.animationDuration = `${Math.random() * 5 + 4}s`; // 4 to 9 seconds
+
+            particleContainer.appendChild(particle);
+
+            // Cleanup particle after animation
+            setTimeout(() => {
+                particle.remove();
+            }, 9000);
+        }
+    </script>
+</body>
+</html>
